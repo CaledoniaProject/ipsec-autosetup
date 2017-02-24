@@ -26,6 +26,7 @@ eap_pass=astrongpassword
 
 1. 只支持IP方式，如要支持域名方式，请修改脚本里面的 leftid
 2. 只支持 Ubuntu 16.04
+3. 重复运行，会重新创建 CA
 
 ### 参考文档
 
