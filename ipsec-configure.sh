@@ -7,15 +7,31 @@ if [[ $(id -u) != "0" ]]; then
     exit
 fi
 
-ip=1.1.1.1
-nic=eth0
+ip=
+nic=
 
-eap_user=myusername
-eap_pass=astrongpassword
+eap_user=
+eap_pass=
+
+function show_usage()
+{
+    echo 'ipsec-configure -i IP -n NIC [-u EAP_USER] [-p EAP_PASS]'
+    exit 1
+}
+
+function random_string()
+{
+    len=$1
+    head /dev/urandom | tr -dc A-Za-z0-9 | head -c "$len"; echo ''
+}
 
 function install_dep()
 {
-    apt-get install -y strongswan strongswan-plugin-eap-mschapv2
+    if [[ $(lsb_release -rs) == "16.04" ]]; then
+      apt install -y strongswan strongswan-plugin-eap-mschapv2
+    else
+      apt install -y strongswan-starter libstrongswan-standard-plugins libstrongswan-extra-plugins strongswan-pki
+    fi
 }
 
 function build_certs()
@@ -29,7 +45,7 @@ function build_certs()
     ipsec pki --gen --type rsa --size 4096 --outform pem > server-root-key.pem
     ipsec pki --self --ca --lifetime 3650 \
         --in server-root-key.pem \
-        --type rsa --dn "C=US, O=VPN Server, CN=VPN Server Root CA" \
+        --type rsa --dn "C=US, O=VPN Server, CN=VPN Server Root CA - $ip" \
         --outform pem > server-root-ca.pem
 
     # VPN
@@ -122,9 +138,52 @@ function show_status()
     ipsec statusall
 }
 
+while getopts ":i:u:p:n:" opt; do
+  case ${opt} in
+    i)
+      ip=$OPTARG
+      ;;
+    n)
+      nic=$OPTARG
+      ;;
+    u)
+      eap_user=$OPTARG
+      ;;
+    p)
+      eap_pass=$OPTARG
+      ;;
+    \?)
+      echo "Invalid option: $OPTARG" 1>&2
+      ;;
+    :)
+      echo "Invalid option: $OPTARG requires an argument" 1>&2
+      ;;
+  esac
+done
+shift $((OPTIND -1))
+
+if [[ -z "$ip" ]] || [[ -z "$nic" ]]; then
+    show_usage
+fi
+
+if [[ -z "$eap_user" ]]; then
+    eap_user=$(random_string 20)
+fi
+if [[ -z "$eap_pass" ]]; then
+    eap_pass=$(random_string 20)
+fi
+
 install_dep 
 build_certs "$ip"
 configure_ipsec "$ip" "$eap_user" "$eap_pass"
 configure_iptables "$nic"
 show_status
+
+sysctl net.ipv4.ip_forward=1
+
+echo Success. Please import server-root-ca.pem on iOS devices before connecting.
+echo And load iptables rules on startup
+
+
+
 
