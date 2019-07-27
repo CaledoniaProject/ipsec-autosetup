@@ -12,6 +12,7 @@ bash ipsec-configure.sh -i YOUR_IP -n YOUR_NIC
 
 1. 只支持IP方式，如要支持域名方式，请修改脚本里面的 leftid
 2. 重复运行，会重新创建证书
+3. 重启失效，请自行设置 iptables 恢复和 ipv4 转发
 
 ### 参考文档
 
